@@ -1,87 +1,127 @@
-import { useEffect } from 'react'
-import { useState } from 'react'
-import uniqid from 'uniqid';
-import './App.css'
+import React, { useState, useEffect } from "react";
+import uniqid from "uniqid";
 
 function App() {
-  const [data, setData] = useState([])
-  const [newTitle, setNewTitle] = useState("")
-  const [updatedTitle, setUpdatedTitle] = useState("")
-  const [flag, setFlag] = useState(false)
+  const [posts, setPosts] = useState([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [updatedTitle, setUpdatedTitle] = useState("");
+
+  const apiUrl = "https://jsonplaceholder.typicode.com/posts";
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchPosts();
+  }, []);
 
-  const fetchData = async () => {
-    const data = await fetch("https://jsonplaceholder.typicode.com/posts");
-    const json = await data.json();
-    setData(json)
-  }
+  const fetchPosts = () => {
+    fetch(apiUrl)
+      .then((response) => response.json())
+      .then((data) => setPosts(data.slice(0, 10)))
+      .catch((error) => console.error("Error fetching posts:", error));
+  };
 
-  const handlePostAdd =  () => {
-    // console.log("data add")
-    fetch("https://jsonplaceholder.typicode.com/posts", {
+  const handlePostAdd = () => {
+    fetch(apiUrl, {
       method: "POST",
-      body: JSON.stringify({ title: newTitle, id: uniqid() }),
-      headers: { "Content-type": "application/json", },
+      body: JSON.stringify({ title: newTitle }),
+      headers: { "Content-type": "application/json; charset=UTF-8" },
     })
-    .then((response) => response.json())
-    .then((data) => {
-      setData((title) => [...title, data]);
-    })
-    .catch((error) => console.log(error));
-    // const json = await newData.json()
-    // setData([json,...data ])
-    // setNewTitle("")
-    // console.log(json, "new title")
-  }
+      .then((response) => response.json())
+      .then((data) => {
+        const addedPost = { ...data, id: uniqid() };
+        setPosts((prevPosts) => [...prevPosts, addedPost]);
+        setNewTitle("");
+      })
+      .catch((error) => console.log(error.message));
+  };
 
-  const handleDeleteClick = async (id) => {
-    // console.log(id, "id click")
-    const deletedData = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
+  const handleDeleteClick = (id) => {
+    fetch(`${apiUrl}/${id}`, {
       method: "DELETE",
     })
-    setData(data.filter(elem => elem.id !== id))
-  }
+      .then(() => {
+        setPosts(posts.filter((post) => post.id !== id));
+      })
+      .catch((error) => console.error("Error deleting post:", error));
+  };
 
-  const handleUpdateClick = async (id) => {
-    setFlag(true)
-    // console.log(id, "updated id")
-    const title = data.find(el => el.id === id)
-    console.log(title, "updated title")
-    const newData = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
+  const handleUpdateClick = (id, currentTitle) => {
+    setEditingId(id);
+    setUpdatedTitle(currentTitle);
+  };
+
+  const handleUpdateSubmit = (id) => {
+    const updatedPost = { id, title: updatedTitle };
+
+    fetch(`${apiUrl}/${id}`, {
       method: "PUT",
-      headers: { "Content-type": "application/json", },
-      body: JSON.stringify({ title: updatedTitle })
+      headers: {
+        "Content-type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify(updatedPost),
     })
-  }
-  // console.log(data, "all data")
+      .then(() => {
+        setPosts(posts.map((post) => (post.id === id ? updatedPost : post)));
+        setEditingId(null);
+        setUpdatedTitle("");
+      })
+      .catch((error) => console.error("Error updating post:", error));
+  };
 
   return (
-    <>
+    <div style={{ padding: "20px" }}>
+      <h1>Simple CRUD App</h1>
+
+      {/* Create new post */}
+      <div>
+        <input
+          type="text"
+          placeholder="New post title"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+        />
+        <button onClick={handlePostAdd}>Add Post</button>
+      </div>
+
       <ul>
-        <input type="text" value={newTitle} onChange={(e) => {
-          setNewTitle(e.target.value)
-        }} />
-        <button onClick={handlePostAdd}>Add data</button>
-        {data?.map((elem, id) => (
-          <ul className='main' key={elem.id}>
-            <li>{elem.title}</li>
-            <button onClick={() => handleUpdateClick(elem.id)}>Update</button>
-            <button onClick={() => handleDeleteClick(elem.id)}>Delete</button>
-            {flag ? <>
-              <input type="text" placeholder='updated text' value={elem.title} onChange={(e) => {
-                setUpdatedTitle(e.target.value)
-              }} />
-              <button onClick={() => setFlag(false)}>Done</button>
-            </> : ""}
-          </ul>
-        )
-        )}
+        {posts.map((post) => (
+          <li key={post.id} style={{ marginBottom: "10px" }}>
+            {editingId === post.id ? (
+              <>
+                {/* Update post */}
+                <input
+                  type="text"
+                  value={updatedTitle}
+                  onChange={(e) => setUpdatedTitle(e.target.value)}
+                />
+                <button onClick={() => handleUpdateSubmit(post.id)}>
+                  Save
+                </button>
+                <button onClick={() => setEditingId(null)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {post.title}
+                <button
+                  style={{ marginLeft: "10px" }}
+                  onClick={() => handleUpdateClick(post.id, post.title)}
+                >
+                  Edit
+                </button>
+                {/* Delete Post */}
+                <button
+                  style={{ marginLeft: "10px" }}
+                  onClick={() => handleDeleteClick(post.id)}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </li>
+        ))}
       </ul>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
